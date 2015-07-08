@@ -3,9 +3,6 @@ library(OpenML)
 library(mlr)
 setOMLConfig(conf = list(cachedir="~/.openml/cache"))
 
-# User authenitcation
-authenticateUser(username="Schober.Benjamin@campus.lmu.de"
-                 ,password="aufstieg12")
 # list all classification tasks
 tasks = listOMLTasks(type = 1)
 # subset row number 
