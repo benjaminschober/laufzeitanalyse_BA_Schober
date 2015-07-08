@@ -2,10 +2,10 @@ getLearnerParam = function(learner, tune.length){
   
   # classifier 
   
-  if(learner == "classif.boosting"){
+  if(learner == "classif.boosting"){  # wie im caret package
     ps = makeParamSet(
       makeDiscreteParam("mfinal",
-                       floor((1L:tune.length) * 50L)),
+                       floor((1L:tune.length) * 50L)),  
       makeIntegerParam("maxdepth",
                         lower = 1L,
                         upper = tune.length))
@@ -13,9 +13,8 @@ getLearnerParam = function(learner, tune.length){
   
   if(learner == "classif.cforest"){
     ps = makeParamSet(
-      makeIntegerParam("mtry",          
-                       lower = ceiling(0.03*sum(tdesc$n.feat)),
-                       upper = floor(0.3*sum(tdesc$n.feat)))) 
+      makeDiscreteParam("mtry",          
+                       GetMtry(sum(tdesc$n.feat),tune.length)))
   }
   
   if(learner == "classif.ctree"){
@@ -141,14 +140,14 @@ getLearnerParam = function(learner, tune.length){
   
   if(learner == "classif.randomForest"){
     ps = makeParamSet(
-      makeDiscreteParam("mtry",
-                        5L))
+      makeDiscreteParam("mtry",          
+                        GetMtry(sum(tdesc$n.feat),tune.length)))
   } 
   
   if(learner == "classif.randomForestSRC"){
     ps = makeParamSet(
-      makeDiscreteParam("mtry",
-                        5L))
+      makeDiscreteParam("mtry",          
+                        GetMtry(sum(tdesc$n.feat),tune.length)))
   } 
   
   if(learner == "classif.rda"){
@@ -172,4 +171,14 @@ getLearnerParam = function(learner, tune.length){
                         seq(1L, tune.length)))
   }
   return(ps)
+}
+
+GetMtry = function(p, length){
+  if(p < length){
+    mtry = ceiling(sqrt(p))
+  }
+  else{
+    mtry = ceiling(seq(2:(length+1)) * 0.5 * sqrt(p)) 
+  }
+  return(mtry)
 }
