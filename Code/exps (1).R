@@ -9,6 +9,7 @@ authenticateUser(username="Schober.Benjamin@campus.lmu.de"
 # list all classification tasks
 tasks = listOMLTasks(type = 1)
 # subset row number 
+
 sel.tasks = subset(tasks, NumberOfInstances >= 2000 & NumberOfSymbolicFeatures > 1)
 # only take the first 5
 sel.tasks = head(sel.tasks,5L)[c(1),]
