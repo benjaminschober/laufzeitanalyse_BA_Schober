@@ -165,6 +165,7 @@ getLearnerParam = function(learner, tune.length){
                         seq(0, 1, length = tune.length)))
   }
   
+  
   if(learner == "classif.svm"){
     ps = makeParamSet(
       makeDiscreteParam("cost",
