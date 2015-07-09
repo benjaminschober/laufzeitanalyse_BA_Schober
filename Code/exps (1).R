@@ -9,7 +9,7 @@ tasks = listOMLTasks(type = 1)
 
 sel.tasks = subset(tasks, NumberOfInstances <= 1000 & NumberOfSymbolicFeatures > 1)
 # only take the first 5
-sel.tasks = head(sel.tasks,5L)[c(1),]
+sel.tasks = head(sel.tasks,5L)
 
 oml.task.ids = sel.tasks$task_id
 
@@ -20,7 +20,7 @@ problem.ids = paste0("t", oml.task.ids)
 measures = list(mmce, ber, timetrain, timepredict)
 
 # vector of learners we want to use
-learners = c("classif.ksvm")
+learners = c("classif.randomForest")
 
 # delete the file . ATTENTION
 unlink("time_benchmark-files", recursive = TRUE)
@@ -39,14 +39,14 @@ for (i in seq_along(oml.task.ids)) { # for all task ids we choose
 }
 
 
-learner="classif.ctree"
+
 
 addAlgorithm(reg, # registry made 
              "run-learner", # name of algorithm
              fun = function(static, dynamic, learner) {
                 library(mlr)
                 configureMlr(on.learner.error = "warn") # Configures the behavior of the package
-                oml.task = getOMLTask(task.id = 18) # fetches oml task
+                oml.task = getOMLTask(task.id = static$oml.task.id) # fetches oml task
                 z = toMlr(oml.task) # convert oml task to mlr task
                 task = z$mlr.task # task
                 
