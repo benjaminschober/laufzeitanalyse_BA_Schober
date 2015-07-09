@@ -178,7 +178,7 @@ GetMtry = function(p, length){
     mtry = ceiling(sqrt(p))
   }
   else{
-    mtry = ceiling(seq(2:(length+1)) * 0.5 * sqrt(p)) 
+    mtry = ceiling(seq(1:length) * 0.5 * sqrt(p)) 
   }
   return(mtry)
 }

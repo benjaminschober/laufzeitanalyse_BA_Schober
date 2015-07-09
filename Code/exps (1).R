@@ -20,7 +20,7 @@ problem.ids = paste0("t", oml.task.ids)
 measures = list(mmce, ber, timetrain, timepredict)
 
 # vector of learners we want to use
-learners = c("classif.randomForest")
+learners = c("classif.randomForest","classif.ada")
 
 # delete the file . ATTENTION
 unlink("time_benchmark-files", recursive = TRUE)
@@ -46,13 +46,13 @@ addAlgorithm(reg, # registry made
              fun = function(static, dynamic, learner) {
                 library(mlr)
                 configureMlr(on.learner.error = "warn") # Configures the behavior of the package
-                oml.task = getOMLTask(task.id = static$oml.task.id) # fetches oml task
+                oml.task = getOMLTask(task.id = static.oml.task.id) # fetches oml task
                 z = toMlr(oml.task) # convert oml task to mlr task
                 task = z$mlr.task # task
                 
                 
                 #rin = z$mlr.rin # resampling strategy
-                rin = makeResampleDesc("CV", iters=5)
+                rin = makeResampleDesc("CV", iters = 10)
                 target = getTaskTargetNames(task) #get the name(s) of the target column(s)
                 
                 # solve errors
@@ -65,9 +65,12 @@ addAlgorithm(reg, # registry made
                                       )
                             )
                 # remove constant features
+                
                 task = makeClassifTask(data = i$data, target = target) # Create classification task
                 task =  removeConstantFeatures(task, perc = 0.1) # perc= the percentage of a feature value 
                                                                    # that must differ from the mode value 
+                
+                if(learner %in% listLearners(task)){
                 
                 tdesc = task$task.desc
         
@@ -80,8 +83,12 @@ addAlgorithm(reg, # registry made
                                       control = ctrl, show.info = FALSE)
                 r = resample(lrn, task = task, resampling = outer, extract = getTuneResult,
                              measures = measures, show.info = FALSE)
-                res = list(resample.res = r, n = tdesc$size, p = sum(tdesc$n.feat))
-                res = c(res, tdesc$n.feat)
+                res = list(resample.res = r, n = tdesc$size, p = sum(tdesc$n.feat),tune = r$extract)
+                res = c(res, tdesc$n.feat)}
+                else{
+                  res = list(resample.res = NA, n = tdesc$size, p = sum(tdesc$n.feat),tune = NA)
+                  res = c(res, tdesc$n.feat)
+                }
                 return(res)
 })
 
