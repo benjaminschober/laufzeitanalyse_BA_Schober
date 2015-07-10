@@ -74,7 +74,7 @@ getAlgoFun = function(lrn, measures, save.models, pm.opts) {
 
 getTaskFun = function(oml.task.id) {
   configureMlr(on.learner.error = "warn") # Configures the behavior of the package
-  oml.task = getOMLTask(task.id = static$oml.task.id)
+  oml.task = getOMLTask(task.id = oml.task.id)
   z = toMlr(oml.task) # convert oml task to mlr task
   task = z$mlr.task # task
   target = getTaskTargetNames(task) #get the name(s) of the target column(s)
@@ -101,14 +101,6 @@ if (FALSE) {
   library(OpenML)
   unlink("mlr_benchmark-files", recursive = TRUE)
   reg = makeExperimentRegistry("mlr_benchmark", packages = "mlr")
-  tasks = list(iris.task, sonar.task)
-  learners = list(makeLearner("classif.rpart"), makeLearner("classif.randomForest"))
-  resamplings = list(makeResampleDesc("CV", iters = 10))
-  
-  batchmark(reg, learners, tasks, resamplings, measures = list(mmce, timetrain), overwrite = TRUE, repls = 1L)
-  submitJobs(reg, getJobIds(reg))
-  testJob(reg, 1, external = FALSE)
-  reduceResultsExperiments(reg)
 }
 
 
@@ -116,8 +108,7 @@ if (FALSE) {
 ### For OpenMl
 
 if (FALSE) {
-  tasks = c(4,5)
-  
+  tasks = c(4,5)  
 #   2nd learner
 #   ps = getLearnerParam("classif.rpart", 5)
 #   ctrl = makeTuneControlGrid()
@@ -128,9 +119,7 @@ if (FALSE) {
 #   
   learners = list(makeLearner("classif.rpart"))
   resamplings = list(makeResampleDesc("CV", iters = 10))
-  tasks = c(4,5)
   batchmark(reg, learners, tasks, resamplings, measures = list(mmce, timetrain), overwrite = TRUE, repls = 1L)
-  
   submitJobs(reg)
 }
 
