@@ -27,7 +27,7 @@ batchmark = function(reg, learners, oml.task.id, resamplings, measures = NULL, r
   assertFlag(overwrite)
   assertList(pm.opts, names = "named")
   
-  
+  #problem.ids = paste0("t", oml.task.id)
   
   # generate problems
   pdes = Map(
@@ -36,7 +36,7 @@ batchmark = function(reg, learners, oml.task.id, resamplings, measures = NULL, r
       addProblem(reg, id, static = static, overwrite = overwrite, seed = seed)
       makeDesign(id)
     }
-    ,id = task.ids, oml.task.id = oml.task.id, rdesc = resamplings,
+    ,id = paste0("t",oml.task.id), oml.task.id = oml.task.id, rdesc = resamplings,
     seed = reg$seed +  seq_along(tasks)
   )
   
@@ -67,7 +67,22 @@ getAlgoFun = function(lrn, measures, save.models, pm.opts) {
     task = z$mlr.task # task
     target = getTaskTargetNames(task) #get the name(s) of the target column(s)
     
-    runTaskMlr(task = static$task, learner = lrn, remove.const.feats = TRUE)
+    # solve errors
+    
+    # impute missing values
+    i = impute(data = getTaskData(task), 
+               target = target,
+               classes = list(numeric = imputeMedian(), 
+                              factor = imputeConstant("_missing_")
+               )
+    )
+    # remove constant features
+    
+    task = makeClassifTask(data = i$data, target = target) # Create classification task
+    task =  removeConstantFeatures(task, perc = 0.1) 
+    rdesc = makeResampleDesc("CV",iters=10)
+
+    #runTaskMlr(task = oml.task, learner = lrn, remove.const.feats = TRUE)
     res = list(resample.res = resample(learner = lrn, task = static$task, static$rdesc,
                                        measures =    measures))
     res = c(res, n = static$task$task.desc$size)
@@ -98,7 +113,7 @@ if (FALSE) {
 ### For OpenMl
 
 if (FALSE) {
-  tasks = list(getOMLTask(4))
+  tasks = c(4,5)
   
   # learners
   ps = getLearnerParam("classif.rpart", 5)
@@ -108,10 +123,11 @@ if (FALSE) {
                         inner, par.set = ps, 
                         control = ctrl, show.info = FALSE)
   
-  learners = list(makeLearner("classif.rpart"), lrn)
+  learners = list(makeLearner("classif.rpart"))
   resamplings = list(makeResampleDesc("CV", iters = 10))
-  
+  tasks = c(4,5)
   batchmark(reg, learners, tasks, resamplings, measures = list(mmce, timetrain), overwrite = TRUE, repls = 1L)
+  submitJobs(reg)
 }
 
 
