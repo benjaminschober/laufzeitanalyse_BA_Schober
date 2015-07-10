@@ -1,6 +1,12 @@
-batchmark = function(reg, learners, tasks, resamplings, measures = NULL, repls = 1L, save.models = FALSE, overwrite = FALSE, pm.opts = list()) {
+batchmark = function(reg, oml.learner.id, tasks, resamplings, measures = NULL, repls = 1L, save.models = FALSE, overwrite = FALSE, pm.opts = list()) {
+  
   # not needed for BE>=1.4, remove then
   fixID = function(x) gsub(".", "_", x, fixed = TRUE)
+  
+  #Get Task from OML:
+  tasks = lapply(oml.learner.id, FUN = getOMLTask)
+  
+  
   
   BatchExperiments:::checkExperimentRegistry(reg)
   if ("mlr" %nin% names(reg$packages))
@@ -34,14 +40,16 @@ batchmark = function(reg, learners, tasks, resamplings, measures = NULL, repls =
   assertFlag(save.models)
   assertFlag(overwrite)
   assertList(pm.opts, names = "named")
+
+  
   
   # generate problems
   pdes = Map(
     function(id, task, rdesc, seed) {
     static = list(rdesc = rdesc, task = task)
     addProblem(reg, id, static = static, overwrite = overwrite, seed = seed)
-    makeDesign(id, design = data.frame(i = seq_len(rdesc$iters)))
-  },id = fixID(task.ids), task = tasks, rdesc = resamplings, seed = reg$seed +   seq_along(tasks)
+    makeDesign(id)
+  },id = fixID(task.ids), task = tasks, rdesc = resamplings, seed = reg$seed +  seq_along(tasks)
   )
   
   # generate algos
@@ -55,11 +63,6 @@ batchmark = function(reg, learners, tasks, resamplings, measures = NULL, repls =
   addExperiments(reg, prob.designs = pdes, algo.designs = ades, repls = repls, skip.defined = overwrite)
 }
 
-resample.fun = function(job, static, i) {
-  rin = makeResampleInstance(desc = static$rdesc, task = static$task)
-  list(train = rin$train.inds[[i]], test = rin$test.inds[[i]])
-}
-
 getAlgoFun = function(lrn, measures, save.models, pm.opts) {
   force(lrn)
   force(measures)
@@ -71,8 +74,10 @@ getAlgoFun = function(lrn, measures, save.models, pm.opts) {
       on.exit(parallelStop())
     }
     runTaskMlr(task = static$task, learner = lrn, remove.const.feats = TRUE)
-    resample = resample(learner = lrn, task = static$task, static$rdesc)
-    if (save.models) c(list(resample = resample)) else perf
+    res = list(resample.res = resample(learner = lrn, task = static$task, static$rdesc,
+               measures =    measures))
+    res = c(res, n = static$task$task.desc$size)
+    if (save.models) c(list(resample = resample)) else res
   }
 }
 
@@ -96,10 +101,9 @@ if (FALSE) {
 
 
 
-
-
 ### For OpenMl
 
+if (FALSE) {
 tasks = list(getOMLTask(4))
 
 # learners
@@ -114,5 +118,18 @@ learners = list(makeLearner("classif.rpart"), lrn)
 resamplings = list(makeResampleDesc("CV", iters = 10))
 
 batchmark(reg, learners, tasks, resamplings, measures = list(mmce, timetrain), overwrite = TRUE, repls = 1L)
+}
+
+
+# Get Aggregated Results
+if (FALSE) {
+res = reduceResultsExperiments(reg, ids = getJobIds(reg),
+                               fun = function(job, res) {
+                                 r1 = res$resample.res$aggr
+                                 res$resample.res = NULL
+                                 return(r1)
+                               })
+}
+
 
 
