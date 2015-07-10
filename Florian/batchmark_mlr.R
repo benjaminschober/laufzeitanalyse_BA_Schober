@@ -36,11 +36,13 @@ batchmark = function(reg, learners, tasks, resamplings, measures = NULL, repls =
   assertList(pm.opts, names = "named")
   
   # generate problems
-  pdes = Map(function(id, task, rdesc, seed) {
+  pdes = Map(
+    function(id, task, rdesc, seed) {
     static = list(rdesc = rdesc, task = task)
-    addProblem(reg, id, static = static, dynamic = resample.fun, overwrite = overwrite, seed = seed)
+    addProblem(reg, id, static = static, overwrite = overwrite, seed = seed)
     makeDesign(id, design = data.frame(i = seq_len(rdesc$iters)))
-  }, id = fixID(task.ids), task = tasks, rdesc = resamplings, seed = reg$seed + seq_along(tasks))
+  },id = fixID(task.ids), task = tasks, rdesc = resamplings, seed = reg$seed +   seq_along(tasks)
+  )
   
   # generate algos
   ades = Map(function(id, learner) {
@@ -68,17 +70,18 @@ getAlgoFun = function(lrn, measures, save.models, pm.opts) {
       do.call(parallelStart, pm.opts)
       on.exit(parallelStop())
     }
-    model = train(learner = lrn, task = static$task, subset = dynamic$train)
-    pred = predict(model, task = static$task, subset = dynamic$test)
-    perf = as.list(performance(pred, measures, task = task, model = model))
-    if (save.models) c(list(model = model), perf) else perf
+    runTaskMlr(task = static$task, learner = lrn, remove.const.feats = TRUE)
+    resample = resample(learner = lrn, task = static$task, static$rdesc)
+    if (save.models) c(list(resample = resample)) else perf
   }
 }
 
 if (FALSE) {
+  #For MLR
   library(checkmate)
   library(mlr)
   library(BatchExperiments)
+  library(OpenML)
   unlink("mlr_benchmark-files", recursive = TRUE)
   reg = makeExperimentRegistry("mlr_benchmark", packages = "mlr")
   tasks = list(iris.task, sonar.task)
@@ -93,7 +96,14 @@ if (FALSE) {
 
 
 
-ps = getLearnerParam("classif.rpart", 3)
+
+
+### For OpenMl
+
+tasks = list(getOMLTask(4))
+
+# learners
+ps = getLearnerParam("classif.rpart", 5)
 ctrl = makeTuneControlGrid()
 inner = makeResampleDesc("CV", iters = 3L)
 lrn = makeTuneWrapper(makeLearner("classif.rpart"),
@@ -101,7 +111,8 @@ lrn = makeTuneWrapper(makeLearner("classif.rpart"),
                       control = ctrl, show.info = FALSE)
 
 learners = list(makeLearner("classif.rpart"), lrn)
-                
+resamplings = list(makeResampleDesc("CV", iters = 10))
 
+batchmark(reg, learners, tasks, resamplings, measures = list(mmce, timetrain), overwrite = TRUE, repls = 1L)
 
 
