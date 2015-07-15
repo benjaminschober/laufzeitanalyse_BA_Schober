@@ -123,7 +123,7 @@ if (FALSE) {
   submitJobs(reg)
 }
 
-
+# -- Old:
 # Get Aggregated Results
 if (FALSE) {
   res = reduceResultsExperiments(reg, ids = getJobIds(reg),
@@ -132,6 +132,26 @@ if (FALSE) {
                                    res$resample.res = NULL
                                    return(r1)
                                  })
+}
+
+# -- New from Bernd
+# Get Aggregated Results
+if (FALSE) {
+  res = reduceResultsExperiments(reg, ids = getJobIds(reg),
+                                 fun = function(job, res) {
+                                   r1 = res$resample.res$aggr
+                                   res$resample.res = NULL
+                                   return(r1)
+                                 })
+res = reduceResults(reg, ids = getJobIds(reg), init = data.frame(), fun = function(aggr, job, res) {
+  exp.settings = job[c("id", "prob.id", "algo.id", "repl")]
+  exp.settings = as.data.frame(exp.settings)
+  mt = res$resample.res$measures.test
+  a = cbind(exp.settings, mt)
+  aggr = rbind(aggr, a)
+  return(aggr)
+})
+res
 }
 
 
