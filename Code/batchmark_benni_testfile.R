@@ -1,6 +1,5 @@
-#hallo
-batchmark = function(reg, learners, oml.task.id, resamplings, measures = NULL, repls = 1L, save.models = FALSE, overwrite = FALSE, pm.opts = list()) {
- 
+batchmark = function(reg, learners, oml.task.id, measures = NULL, repls = 1L, save.models = FALSE, overwrite = FALSE, pm.opts = list()) {
+  
   BatchExperiments:::checkExperimentRegistry(reg)
   if ("mlr" %nin% names(reg$packages))
     stop("mlr is required on the slaves, please add mlr via 'addRegistryPackages'")
@@ -10,11 +9,6 @@ batchmark = function(reg, learners, oml.task.id, resamplings, measures = NULL, r
   learner.ids = vcapply(learners, "[[", "id")
   if (anyDuplicated(learner.ids))
     stop("Duplicated learner ids found")
-  
-  resamplings = ensureVector(resamplings, length(tasks), "ResampleDesc")
-  if (length(resamplings) == 1)
-    resamplings=  rep(resamplings,length(tasks))
-  assertList(resamplings, "ResampleDesc", len = length(tasks))
   
   if (is.null(measures)) {
     measures = default.measures(tasks[[1L]])
@@ -27,7 +21,10 @@ batchmark = function(reg, learners, oml.task.id, resamplings, measures = NULL, r
   assertFlag(save.models)
   assertFlag(overwrite)
   assertList(pm.opts, names = "named")
-
+  
+  PERC = 0.1
+  
+  
   
   # generate problems
   pdes = Map(
@@ -37,7 +34,7 @@ batchmark = function(reg, learners, oml.task.id, resamplings, measures = NULL, r
       addProblem(reg, id, static = static, overwrite = overwrite, seed = seed)
       makeDesign(id)
     }
-    ,id = paste0("t",oml.task.id), oml.task.id = oml.task.id, rdesc = resamplings,
+    ,id = paste0("t",oml.task.id), oml.task.id = oml.task.id, rdesc = GetResampleList(oml.task.id),
     seed = reg$seed +  seq_along(tasks)
   )
   
@@ -63,13 +60,13 @@ getAlgoFun = function(lrn, measures, save.models, pm.opts) {
       do.call(parallelStart, pm.opts)
       on.exit(parallelStop())
     }
-#   rdesc = makeResampleDesc("CV",iters=10)
-
-    #runTaskMlr(task = oml.task, learner = lrn, remove.const.feats = TRUE)
+    #   rdesc = makeResampleDesc("CV",iters=10)
+    
+    runTaskMlr(task = oml.task, learner = lrn, remove.const.feats = TRUE)
     res = list(resample.res = resample(learner = lrn, task = static$task, static$rdesc,
                                        measures =    measures))
     res = c(res, n = static$task$task.desc$size)
-    if (save.models) c(list(resample = resample)) else res
+    if (save.models) c(list(resample = GetResampleList(oml.task.id))) else res
   }
 }
 
@@ -95,6 +92,37 @@ getTaskFun = function(oml.task.id) {
   return(task)
 }
 
+GetResampleList = function(oml.task.id){
+  
+  task.list = lapply(as.list(oml.task.id),getOMLTask)
+  mlr.task.list = lapply(task.list, toMlr)
+  for(i in 1: length(oml.task.id)){
+    mlr.task.list[[i]] <- mlr.task.list[[i]]$mlr.rin$desc
+  }
+  return(mlr.task.list)
+}
+
+GetLearnerList = function(learner, tune = FALSE){
+  
+  learner.list = lapply(as.list(learner), makeLearner)
+  
+  if(tune == TRUE){
+    learner.list.tuned = lapply(as.list(learner), GettunedLearner)
+    learner.list = c(learner.list, learner.list.tuned) 
+  }
+  return(learner.list)
+}
+
+GettunedLearner = function(learner){
+  ps = getLearnerParam(learner, 5)
+  ctrl = makeTuneControlGrid()
+  inner = makeResampleDesc("CV", iters = 3L)
+  lrn = makeTuneWrapper(makeLearner(learner),
+                        inner, par.set = ps, 
+                        control = ctrl, show.info = FALSE)
+  return(lrn)
+}
+
 if (FALSE) {
   library(checkmate)
   library(mlr)
@@ -109,19 +137,24 @@ if (FALSE) {
 ### For OpenMl
 
 if (FALSE) {
-  tasks = c(4,5)  
-#   2nd learner
-#   ps = getLearnerParam("classif.rpart", 5)
-#   ctrl = makeTuneControlGrid()
-#   inner = makeResampleDesc("CV", iters = 3L)
-#   lrn = makeTuneWrapper(makeLearner("classif.rpart"),
-#                         inner, par.set = ps, 
-#                         control = ctrl, show.info = FALSE)
-#   
-  learners = list(makeLearner("classif.rpart"))
-  resamplings = list(makeResampleDesc("CV", iters = 10))
-  batchmark(reg, learners, tasks, resamplings, measures = list(mmce, timetrain), overwrite = TRUE, repls = 1L)
-  submitJobs(reg)
+  # list all classification tasks
+  class.tasks = listOMLTasks(type = 1)
+  # subset row number 
+  
+  sel.tasks = subset(class.tasks, 
+                     NumberOfInstances <= 300 & 
+                       NumberOfSymbolicFeatures > 1 &
+                       status == "active")
+  # only take the first 5
+  # = head(sel.tasks,5L)
+  tasks = sample(sel.tasks$task_id, 5L)
+  # oml.task = getOMLTask(task.id = 41) 
+  
+  learner = c("classif.ctree",)
+  learners = GetLearnerList(learner, tune = FALSE)
+  #resamplings = list(makeResampleDesc("CV", iters = 10))
+  batchmark(reg, learners, tasks, measures = list(mmce, ber, timetrain, timepredict), overwrite = TRUE, repls = 1L)
+  submitJobs(reg,16:20)
 }
 
 # -- Old:
@@ -144,16 +177,14 @@ if (FALSE) {
                                    res$resample.res = NULL
                                    return(r1)
                                  })
-res = reduceResults(reg, ids = getJobIds(reg), init = data.frame(), fun = function(aggr, job, res) {
-  exp.settings = job[c("id", "prob.id", "algo.id", "repl")]
-  exp.settings = as.data.frame(exp.settings)
-  mt = res$resample.res$measures.test
-  a = cbind(exp.settings, mt)
-  aggr = rbind(aggr, a)
-  return(aggr)
-})
-res
+  res = reduceResults(reg, ids = getJobIds(reg), init = data.frame(), fun = function(aggr, job, res) {
+    exp.settings = job[c("id", "prob.id", "algo.id", "repl")]
+    exp.settings = as.data.frame(exp.settings)
+    mt = res$resample.res$measures.test
+    a = cbind(exp.settings, mt)
+    aggr = rbind(aggr, a)
+    return(aggr)
+  })
+  res
 }
-
-
 
