@@ -133,32 +133,32 @@ library(OpenML)
 unlink("mlr_benchmark-files", recursive = TRUE)
 reg = makeExperimentRegistry("mlr_benchmark", packages = "mlr")
 
-class.tasks = listOMLTasks(type = 1)
+#class.tasks = listOMLTasks(type = 1)
 # subset row number 
 
-sel.tasks = subset(class.tasks, 
-                   NumberOfInstances >= 800 & 
-                     NumberOfFeatures <= 20 &
-                     NumberOfSymbolicFeatures > 1 &
-                     status == "active") 
-tasks = head(sel.tasks$task_id,3L)
+#sel.tasks = subset(class.tasks, 
+#                   NumberOfInstances >= 800 & 
+#                     NumberOfFeatures <= 20 &
+#                     NumberOfSymbolicFeatures > 1 &
+#                     status == "active") 
+#tasks = head(sel.tasks$task_id,3L)
 tasks = c(21,23,49)
-learners = list(makeLearner("classif.ctree"),
-                makeLearner("classif.boosting"),
-                makeLearner("classif.gbm"),
-                makeLearner("classif.cforest"),
-                makeLearner("classif.randomForest"),
-                makeLearner("classif.randomForestSRC"),
-                makeLearner("classif.J48"),
-                makeLearner("classif.rpart"))
-learners = list(makeLearner("classif.glmnet"),
-                makeLearner("classif.IBk"),
-                makeLearner("classif.kknn", kernel = "gaussian"),
-                makeLearner("classif.JRip"),
-                makeLearner("classif.OneR"),
-                makeLearner("classif.PART"),
-                makeLearner("classif.ksvm", typ = "spoc-svc"),
-                makeLearner("classif.lssvm", kernel = "polydot"))
+#learners = list(makeLearner("classif.ctree"),
+#                makeLearner("classif.boosting"),
+#                makeLearner("classif.gbm"),
+#                makeLearner("classif.cforest"),
+#                makeLearner("classif.randomForest"),
+#                makeLearner("classif.randomForestSRC"),
+#                makeLearner("classif.J48"),
+#                makeLearner("classif.rpart"))
+#learners = list(makeLearner("classif.glmnet"),
+#                makeLearner("classif.IBk"),
+#                makeLearner("classif.kknn", kernel = "gaussian"),
+#                makeLearner("classif.JRip"),
+#                makeLearner("classif.OneR"),
+#                makeLearner("classif.PART"),
+#                makeLearner("classif.ksvm", typ = "spoc-svc"),
+#                makeLearner("classif.lssvm", kernel = "polydot"))
 learners = list(makeLearner("classif.kknn", kernel = "gaussian"),
                 makeLearner("classif.ksvm", typ = "C-svc")
 )
@@ -175,18 +175,7 @@ res = reduceResultsExperiments(reg, ids = 1:12,
                                  return(c(r1, res))
                                })
 res
-ids = getJobIds(reg)
 
-res = reduceResultsExperiments(reg, ids = ids,
-                               fun = function(job, res) {
-                                 r1 = as.list(res$resample.res$aggr)
-                                 res$resample.res = NULL
-                                 c(r1, res)
-                               }
-                               
-)
-
-res
 
 
 # -- New from Bernd
