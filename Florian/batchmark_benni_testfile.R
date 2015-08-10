@@ -1,5 +1,13 @@
-batchmark = function(reg, learners, oml.task.id, resamplings, measures = NULL, repls = 1L, save.models = FALSE, overwrite = FALSE, pm.opts = list()) {
- 
+batchmark = function(reg, learners, oml.task.id, measures = NULL, repls = 1L, save.models = FALSE, overwrite = FALSE, pm.opts = list()) {
+  
+  
+  
+  task.list = lapply(as.list(oml.task.id),getOMLTask)
+  resamplings = lapply(task.list, toMlr)
+  for(i in 1: length(oml.task.id)){
+    resamplings[[i]] <- resamplings[[i]]$mlr.rin$desc
+  }
+  
   BatchExperiments:::checkExperimentRegistry(reg)
   if ("mlr" %nin% names(reg$packages))
     stop("mlr is required on the slaves, please add mlr via 'addRegistryPackages'")
@@ -26,7 +34,7 @@ batchmark = function(reg, learners, oml.task.id, resamplings, measures = NULL, r
   assertFlag(save.models)
   assertFlag(overwrite)
   assertList(pm.opts, names = "named")
-
+  
   
   # generate problems
   pdes = Map(
@@ -62,12 +70,14 @@ getAlgoFun = function(lrn, measures, save.models, pm.opts) {
       do.call(parallelStart, pm.opts)
       on.exit(parallelStop())
     }
-#   rdesc = makeResampleDesc("CV",iters=10)
-
+    #   rdesc = makeResampleDesc("CV",iters=10)
+    
     #runTaskMlr(task = oml.task, learner = lrn, remove.const.feats = TRUE)
     res = list(resample.res = resample(learner = lrn, task = static$task, static$rdesc,
-                                       measures =    measures))
-    res = c(res, n = static$task$task.desc$size)
+                                       measures = measures))
+    res = c(res, n = static$task$task.desc$size, p = sum(static$task$task.desc$n.feat), 
+            classes = length(static$task$task.desc$class.levels), static$rdesc )
+    res = c(res, static$task$task.desc$n.feat)
     if (save.models) c(list(resample = resample)) else res
   }
 }
@@ -90,74 +100,103 @@ getTaskFun = function(oml.task.id) {
   )
   # remove constant features
   task = makeClassifTask(data = i$data, target = target) # Create classification task
-  task =  removeConstantFeatures(task, perc = 0.1) 
+  task =  removeConstantFeatures(task, perc = 0.01) 
   return(task)
 }
 
-if (FALSE) {
-  library(checkmate)
-  library(mlr)
-  library(BatchExperiments)
-  library(OpenML)
-  unlink("mlr_benchmark-files", recursive = TRUE)
-  reg = makeExperimentRegistry("mlr_benchmark", packages = "mlr")
-}
 
-
-
-### For OpenMl
-
-if (FALSE) {
-<<<<<<< HEAD
+GetLearnerList = function(learner, tune = FALSE){
   
-=======
-  tasks = c(4,5)  
->>>>>>> 0936f37a344dec057b268cc60d6b9d4aacb31afd
-#   2nd learner
-#   ps = getLearnerParam("classif.rpart", 5)
-#   ctrl = makeTuneControlGrid()
-#   inner = makeResampleDesc("CV", iters = 3L)
-#   lrn = makeTuneWrapper(makeLearner("classif.rpart"),
-#                         inner, par.set = ps, 
-#                         control = ctrl, show.info = FALSE)
-#   
-  learners = list(makeLearner("classif.rpart"))
-  tasks = c(4,5)
-  resamplings = list(makeResampleDesc("CV", iters = 10))
-  batchmark(reg, learners, tasks, resamplings, measures = list(mmce, timetrain), overwrite = TRUE, repls = 1L)
-  submitJobs(reg)
+  learner.list = lapply(as.list(learner), makeLearner)
+  
+  if(tune == TRUE){
+    learner.list.tuned = lapply(as.list(learner), GettunedLearner)
+    learner.list = c(learner.list, learner.list.tuned) 
+  }
+  return(learner.list)
 }
 
-# -- Old:
-# Get Aggregated Results
-if (FALSE) {
-  res = reduceResultsExperiments(reg, ids = getJobIds(reg),
-                                 fun = function(job, res) {
-                                   r1 = res$resample.res$aggr
-                                   res$resample.res = NULL
-                                   return(r1)
-                                 })
+GettunedLearner = function(learner){
+  ps = getLearnerParam(learner, 5)
+  ctrl = makeTuneControlGrid()
+  inner = makeResampleDesc("CV", iters = 3L)
+  lrn = makeTuneWrapper(makeLearner(learner),
+                        inner, par.set = ps, 
+                        control = ctrl, show.info = FALSE)
+  return(lrn)
 }
+
+library(checkmate)
+library(mlr)
+library(BatchExperiments)
+library(OpenML)
+unlink("mlr_benchmark-files", recursive = TRUE)
+reg = makeExperimentRegistry("mlr_benchmark", packages = "mlr")
+
+#class.tasks = listOMLTasks(type = 1)
+# subset row number 
+
+#sel.tasks = subset(class.tasks, 
+#                   NumberOfInstances >= 800 & 
+#                     NumberOfFeatures <= 20 &
+#                     NumberOfSymbolicFeatures > 1 &
+#                     status == "active") 
+#tasks = head(sel.tasks$task_id,3L)
+tasks = c(21,23,49)
+#learners = list(makeLearner("classif.ctree"),
+#                makeLearner("classif.boosting"),
+#                makeLearner("classif.gbm"),
+#                makeLearner("classif.cforest"),
+#                makeLearner("classif.randomForest"),
+#                makeLearner("classif.randomForestSRC"),
+#                makeLearner("classif.J48"),
+#                makeLearner("classif.rpart"))
+#learners = list(makeLearner("classif.glmnet"),
+#                makeLearner("classif.IBk"),
+#                makeLearner("classif.kknn", kernel = "gaussian"),
+#                makeLearner("classif.JRip"),
+#                makeLearner("classif.OneR"),
+#                makeLearner("classif.PART"),
+#                makeLearner("classif.ksvm", typ = "spoc-svc"),
+#                makeLearner("classif.lssvm", kernel = "polydot"))
+learners = list(makeLearner("classif.kknn", par.vals = list(kernel = "gaussian")),
+                makeLearner("classif.ksvm", par.vals = list(type = "C-svc"))
+)
+
+
+#resamplings = GetResampleList(tasks)
+#resamplings = list(makeResampleDesc("CV", iters = 10))
+batchmark(reg, learners, tasks, measures = list(mmce, ber, timetrain, timepredict, timeboth), overwrite = TRUE, repls = 1L)
+submitJobs(reg,1:12)
+
+res = reduceResultsExperiments(reg, ids = 1:12,
+                               fun = function(job, res) {
+                                 r1 = as.list(res$resample.res$aggr)
+                                 res$resample.res = NULL
+                                 return(c(r1, res))
+                               })
+res
+
+
 
 # -- New from Bernd
 # Get Aggregated Results
 if (FALSE) {
-  res = reduceResultsExperiments(reg, ids = getJobIds(reg),
+  res = reduceResultsExperiments(reg, ids = 1,
                                  fun = function(job, res) {
                                    r1 = res$resample.res$aggr
                                    res$resample.res = NULL
                                    return(r1)
                                  })
-res = reduceResults(reg, ids = getJobIds(reg), init = data.frame(), fun = function(aggr, job, res) {
-  exp.settings = job[c("id", "prob.id", "algo.id", "repl")]
-  exp.settings = as.data.frame(exp.settings)
-  mt = res$resample.res$measures.test
-  a = cbind(exp.settings, mt)
-  aggr = rbind(aggr, a)
-  return(aggr)
-})
-res
+  res = reduceResults(reg, ids = getJobIds(reg), init = data.frame(), fun = function(aggr, job, res) {
+    exp.settings = job[c("id", "prob.id", "algo.id", "repl")]
+    exp.settings = as.data.frame(exp.settings)
+    mt = res$resample.res$measures.test
+    a = cbind(exp.settings, mt)
+    aggr = rbind(aggr, a)
+    return(aggr)
+  })
+  res
 }
-
 
 
