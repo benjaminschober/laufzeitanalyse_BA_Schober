@@ -26,13 +26,13 @@ batchmark = function(reg, learners, oml.task.id, resamplings, measures = NULL, r
   assertFlag(save.models)
   assertFlag(overwrite)
   assertList(pm.opts, names = "named")
-  
-  #problem.ids = paste0("t", oml.task.id)
+
   
   # generate problems
   pdes = Map(
     function(id, oml.task.id, rdesc, seed) {
-      static = list(rdesc = rdesc, oml.task.id = oml.task.id)
+      task = getTaskFun(oml.task.id)
+      static = list(rdesc = rdesc, task = task)
       addProblem(reg, id, static = static, overwrite = overwrite, seed = seed)
       makeDesign(id)
     }
@@ -56,31 +56,13 @@ getAlgoFun = function(lrn, measures, save.models, pm.opts) {
   force(measures)
   force(save.models)
   force(pm.opts)
+  
   function(job, static, dynamic) {
     if (length(pm.opts) > 0L) {
       do.call(parallelStart, pm.opts)
       on.exit(parallelStop())
     }
-    configureMlr(on.learner.error = "warn") # Configures the behavior of the package
-    oml.task = getOMLTask(task.id = static$oml.task.id)
-    z = toMlr(oml.task) # convert oml task to mlr task
-    task = z$mlr.task # task
-    target = getTaskTargetNames(task) #get the name(s) of the target column(s)
-    
-    # solve errors
-    
-    # impute missing values
-    i = impute(data = getTaskData(task), 
-               target = target,
-               classes = list(numeric = imputeMedian(), 
-                              factor = imputeConstant("_missing_")
-               )
-    )
-    # remove constant features
-    
-    task = makeClassifTask(data = i$data, target = target) # Create classification task
-    task =  removeConstantFeatures(task, perc = 0.1) 
-    rdesc = makeResampleDesc("CV",iters=10)
+#   rdesc = makeResampleDesc("CV",iters=10)
 
     #runTaskMlr(task = oml.task, learner = lrn, remove.const.feats = TRUE)
     res = list(resample.res = resample(learner = lrn, task = static$task, static$rdesc,
@@ -90,8 +72,29 @@ getAlgoFun = function(lrn, measures, save.models, pm.opts) {
   }
 }
 
+getTaskFun = function(oml.task.id) {
+  configureMlr(on.learner.error = "warn") # Configures the behavior of the package
+  oml.task = getOMLTask(task.id = static$oml.task.id)
+  z = toMlr(oml.task) # convert oml task to mlr task
+  task = z$mlr.task # task
+  target = getTaskTargetNames(task) #get the name(s) of the target column(s)
+  
+  # solve errors
+  
+  # impute missing values
+  i = impute(data = getTaskData(task), 
+             target = target,
+             classes = list(numeric = imputeMedian(), 
+                            factor = imputeConstant("_missing_")
+             )
+  )
+  # remove constant features
+  task = makeClassifTask(data = i$data, target = target) # Create classification task
+  task =  removeConstantFeatures(task, perc = 0.1) 
+  return(task)
+}
+
 if (FALSE) {
-  #For MLR
   library(checkmate)
   library(mlr)
   library(BatchExperiments)
@@ -115,18 +118,19 @@ if (FALSE) {
 if (FALSE) {
   tasks = c(4,5)
   
-  # learners
-  ps = getLearnerParam("classif.rpart", 5)
-  ctrl = makeTuneControlGrid()
-  inner = makeResampleDesc("CV", iters = 3L)
-  lrn = makeTuneWrapper(makeLearner("classif.rpart"),
-                        inner, par.set = ps, 
-                        control = ctrl, show.info = FALSE)
-  
+#   2nd learner
+#   ps = getLearnerParam("classif.rpart", 5)
+#   ctrl = makeTuneControlGrid()
+#   inner = makeResampleDesc("CV", iters = 3L)
+#   lrn = makeTuneWrapper(makeLearner("classif.rpart"),
+#                         inner, par.set = ps, 
+#                         control = ctrl, show.info = FALSE)
+#   
   learners = list(makeLearner("classif.rpart"))
   resamplings = list(makeResampleDesc("CV", iters = 10))
   tasks = c(4,5)
   batchmark(reg, learners, tasks, resamplings, measures = list(mmce, timetrain), overwrite = TRUE, repls = 1L)
+  
   submitJobs(reg)
 }
 

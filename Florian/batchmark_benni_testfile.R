@@ -116,7 +116,6 @@ if (FALSE) {
 ### For OpenMl
 
 if (FALSE) {
-  tasks = c(4,5)
   
 #   2nd learner
 #   ps = getLearnerParam("classif.rpart", 5)
@@ -127,6 +126,7 @@ if (FALSE) {
 #                         control = ctrl, show.info = FALSE)
 #   
   learners = list(makeLearner("classif.rpart"))
+  tasks = c(4,5)
   resamplings = list(makeResampleDesc("CV", iters = 10))
   tasks = c(4,5)
   batchmark(reg, learners, tasks, resamplings, measures = list(mmce, timetrain), overwrite = TRUE, repls = 1L)
