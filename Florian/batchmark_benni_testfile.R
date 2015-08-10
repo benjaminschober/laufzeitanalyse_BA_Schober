@@ -74,7 +74,7 @@ getAlgoFun = function(lrn, measures, save.models, pm.opts) {
 
 getTaskFun = function(oml.task.id) {
   configureMlr(on.learner.error = "warn") # Configures the behavior of the package
-  oml.task = getOMLTask(task.id = static$oml.task.id)
+  oml.task = getOMLTask(task.id = oml.task.id)
   z = toMlr(oml.task) # convert oml task to mlr task
   task = z$mlr.task # task
   target = getTaskTargetNames(task) #get the name(s) of the target column(s)
@@ -101,14 +101,6 @@ if (FALSE) {
   library(OpenML)
   unlink("mlr_benchmark-files", recursive = TRUE)
   reg = makeExperimentRegistry("mlr_benchmark", packages = "mlr")
-  tasks = list(iris.task, sonar.task)
-  learners = list(makeLearner("classif.rpart"), makeLearner("classif.randomForest"))
-  resamplings = list(makeResampleDesc("CV", iters = 10))
-  
-  batchmark(reg, learners, tasks, resamplings, measures = list(mmce, timetrain), overwrite = TRUE, repls = 1L)
-  submitJobs(reg, getJobIds(reg))
-  testJob(reg, 1, external = FALSE)
-  reduceResultsExperiments(reg)
 }
 
 
@@ -116,7 +108,11 @@ if (FALSE) {
 ### For OpenMl
 
 if (FALSE) {
+<<<<<<< HEAD
   
+=======
+  tasks = c(4,5)  
+>>>>>>> 0936f37a344dec057b268cc60d6b9d4aacb31afd
 #   2nd learner
 #   ps = getLearnerParam("classif.rpart", 5)
 #   ctrl = makeTuneControlGrid()
@@ -128,13 +124,11 @@ if (FALSE) {
   learners = list(makeLearner("classif.rpart"))
   tasks = c(4,5)
   resamplings = list(makeResampleDesc("CV", iters = 10))
-  tasks = c(4,5)
   batchmark(reg, learners, tasks, resamplings, measures = list(mmce, timetrain), overwrite = TRUE, repls = 1L)
-  
   submitJobs(reg)
 }
 
-
+# -- Old:
 # Get Aggregated Results
 if (FALSE) {
   res = reduceResultsExperiments(reg, ids = getJobIds(reg),
@@ -143,6 +137,26 @@ if (FALSE) {
                                    res$resample.res = NULL
                                    return(r1)
                                  })
+}
+
+# -- New from Bernd
+# Get Aggregated Results
+if (FALSE) {
+  res = reduceResultsExperiments(reg, ids = getJobIds(reg),
+                                 fun = function(job, res) {
+                                   r1 = res$resample.res$aggr
+                                   res$resample.res = NULL
+                                   return(r1)
+                                 })
+res = reduceResults(reg, ids = getJobIds(reg), init = data.frame(), fun = function(aggr, job, res) {
+  exp.settings = job[c("id", "prob.id", "algo.id", "repl")]
+  exp.settings = as.data.frame(exp.settings)
+  mt = res$resample.res$measures.test
+  a = cbind(exp.settings, mt)
+  aggr = rbind(aggr, a)
+  return(aggr)
+})
+res
 }
 
 
