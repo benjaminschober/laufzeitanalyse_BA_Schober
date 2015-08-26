@@ -126,23 +126,15 @@ GettunedLearner = function(learner){
   return(lrn)
 }
 
-library(checkmate)
-library(mlr)
-library(BatchExperiments)
-library(OpenML)
 unlink("mlr_benchmark-files", recursive = TRUE)
 reg = makeExperimentRegistry("mlr_benchmark", packages = "mlr")
 
-#class.tasks = listOMLTasks(type = 1)
+class.tasks = listOMLTasks(type = 1)
 # subset row number 
+sel.tasks = sel.tasks[order(sel.tasks$NumberOfFeatures * sel.tasks$NumberOfInstances, decreasing = TRUE),]
 
-#sel.tasks = subset(class.tasks, 
-#                   NumberOfInstances >= 800 & 
-#                     NumberOfFeatures <= 20 &
-#                     NumberOfSymbolicFeatures > 1 &
-#                     status == "active") 
-#tasks = head(sel.tasks$task_id,3L)
-tasks = c(21,23,49)
+tasks = sel.tasks$task_id[200:300] 
+# tasks = c(21,23,49)
 #learners = list(makeLearner("classif.ctree"),
 #                makeLearner("classif.boosting"),
 #                makeLearner("classif.gbm"),
@@ -153,22 +145,55 @@ tasks = c(21,23,49)
 #                makeLearner("classif.rpart"))
 #learners = list(makeLearner("classif.glmnet"),
 #                makeLearner("classif.IBk"),
-#                makeLearner("classif.kknn", kernel = "gaussian"),
+#                makeLearner("classif.kknn"),
 #                makeLearner("classif.JRip"),
 #                makeLearner("classif.OneR"),
 #                makeLearner("classif.PART"),
-#                makeLearner("classif.ksvm", typ = "spoc-svc"),
-#                makeLearner("classif.lssvm", kernel = "polydot"))
-learners = list(makeLearner("classif.kknn", kernel = "gaussian"),
-                makeLearner("classif.ksvm", typ = "C-svc")
-)
+#                makeLearner("classif.ksvm"),
+#                makeLearner("classif.lssvm")
+#learners = list(makeLearner("classif.ksvm"),
+#                makeLearner("classif.lssvm"),
+#                makeLearner("classif.svm"))
+#learners = list(makeLearner("classif.lda"),
+#                makeLearner("classif.mda"),
+#                makeLearner("classif.qda"),
+#                makeLearner("classif.rpart"))
+learners = list(makeLearner("classif.randomForest"))
+
+learners = list(makeLearner("classif.ctree"),
+                makeLearner("classif.boosting"),
+                makeLearner("classif.gbm"),
+                makeLearner("classif.cforest"),
+                makeLearner("classif.randomForest"),
+                makeLearner("classif.randomForestSRC"),
+                makeLearner("classif.J48"),
+                makeLearner("classif.rpart"),
+                makeLearner("classif.glmnet"),
+                makeLearner("classif.IBk"),
+                makeLearner("classif.kknn"),
+                makeLearner("classif.JRip"),
+                makeLearner("classif.OneR"),
+                makeLearner("classif.PART"),
+                makeLearner("classif.ksvm"),
+                makeLearner("classif.lssvm"),
+                makeLearner("classif.svm"),
+                makeLearner("classif.lda"),
+                makeLearner("classif.mda"),
+                makeLearner("classif.qda"),
+                makeLearner("classif.multinom"),
+                makeLearner("classif.naiveBayes"),
+                makeLearner("classif.nnet"))
+
+
 
 #resamplings = GetResampleList(tasks)
 #resamplings = list(makeResampleDesc("CV", iters = 10))
 batchmark(reg, learners, tasks, measures = list(mmce, ber, timetrain, timepredict, timeboth), overwrite = TRUE, repls = 1L)
-submitJobs(reg,1:12)
-
-res = reduceResultsExperiments(reg, ids = 1:12,
+for (i in 20:30){
+submitJobs(reg, ((i*5)-4):(i*5))
+  }
+submitJobs(reg, 5:39)
+res = reduceResultsExperiments(reg, ids = 6:39,
                                fun = function(job, res) {
                                  r1 = as.list(res$resample.res$aggr)
                                  res$resample.res = NULL
