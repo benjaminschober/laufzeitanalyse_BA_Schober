@@ -75,7 +75,7 @@ getAlgoFun = function(lrn, measures, save.models, pm.opts) {
     #runTaskMlr(task = oml.task, learner = lrn, remove.const.feats = TRUE)
     res = list(resample.res = resample(learner = lrn, task = static$task, static$rdesc,
                                        measures = measures))
-    res = c(res, n = static$task$task.desc$size, p = sum(static$task$task.desc$n.feat), 
+    res = c(res, n = static$task$task.desc$size, p = sum(static$task$task.desc$n.feat),
             classes = length(static$task$task.desc$class.levels), static$rdesc )
     res = c(res, static$task$task.desc$n.feat)
     if (save.models) c(list(resample = resample)) else res
@@ -92,15 +92,15 @@ getTaskFun = function(oml.task.id) {
   # solve errors
   
   # impute missing values
-  i = impute(data = getTaskData(task), 
+  i = impute(data = getTaskData(task),
              target = target,
-             classes = list(numeric = imputeMedian(), 
+             classes = list(numeric = imputeMedian(),
                             factor = imputeConstant("_missing_")
              )
   )
   # remove constant features
   task = makeClassifTask(data = i$data, target = target) # Create classification task
-  task =  removeConstantFeatures(task, perc = 0.01) 
+  task =  removeConstantFeatures(task, perc = 0.01)
   return(task)
 }
 
@@ -111,7 +111,7 @@ GetLearnerList = function(learner, tune = FALSE){
   
   if(tune == TRUE){
     learner.list.tuned = lapply(as.list(learner), GettunedLearner)
-    learner.list = c(learner.list, learner.list.tuned) 
+    learner.list = c(learner.list, learner.list.tuned)
   }
   return(learner.list)
 }
@@ -121,104 +121,58 @@ GettunedLearner = function(learner){
   ctrl = makeTuneControlGrid()
   inner = makeResampleDesc("CV", iters = 3L)
   lrn = makeTuneWrapper(makeLearner(learner),
-                        inner, par.set = ps, 
+                        inner, par.set = ps,
                         control = ctrl, show.info = FALSE)
   return(lrn)
 }
+library(checkmate)
+library(mlr)
+library(BatchExperiments)
+library(OpenML)
 
-unlink("mlr_benchmark-files", recursive = TRUE)
-reg = makeExperimentRegistry("mlr_benchmark", packages = "mlr")
+#unlink("mlr_benchmark-files", recursive = TRUE)
+#reg = makeExperimentRegistry("mlr_benchmark", packages = c("mlr","OpenML","farff","rpart"))
+
+# get the taskids i want to run
 
 class.tasks = listOMLTasks(type = 1)
-# subset row number 
-sel.tasks = sel.tasks[order(sel.tasks$NumberOfFeatures * sel.tasks$NumberOfInstances, decreasing = TRUE),]
 
-tasks = sel.tasks$task_id[200:300] 
-# tasks = c(21,23,49)
-#learners = list(makeLearner("classif.ctree"),
-#                makeLearner("classif.boosting"),
-#                makeLearner("classif.gbm"),
-#                makeLearner("classif.cforest"),
-#                makeLearner("classif.randomForest"),
-#                makeLearner("classif.randomForestSRC"),
-#                makeLearner("classif.J48"),
-#                makeLearner("classif.rpart"))
-#learners = list(makeLearner("classif.glmnet"),
-#                makeLearner("classif.IBk"),
-#                makeLearner("classif.kknn"),
-#                makeLearner("classif.JRip"),
-#                makeLearner("classif.OneR"),
-#                makeLearner("classif.PART"),
-#                makeLearner("classif.ksvm"),
-#                makeLearner("classif.lssvm")
-#learners = list(makeLearner("classif.ksvm"),
-#                makeLearner("classif.lssvm"),
-#                makeLearner("classif.svm"))
-#learners = list(makeLearner("classif.lda"),
-#                makeLearner("classif.mda"),
-#                makeLearner("classif.qda"),
-#                makeLearner("classif.rpart"))
-learners = list(makeLearner("classif.randomForest"))
+sel.tasks = subset(class.tasks, NumberOfInstances <= 100000 &
+                     NumberOfInstances >= 200 &
+                     NumberOfFeatures <= 500 &
+                     NumberOfClasses <= 50)
+sel.tasks = sel.tasks[order(sel.tasks$NumberOfFeatures * sel.tasks$NumberOfInstances, decreasing = FALSE),]
 
-learners = list(makeLearner("classif.ctree"),
-                makeLearner("classif.boosting"),
-                makeLearner("classif.gbm"),
+#remove error datasets
+sel.tasks = sel.tasks[-which(sel.tasks$did == 292),]
+
+tasks = sel.tasks$task_id[361:370]
+
+# create the learner
+
+learners = list(makeLearner("classif.randomForest"),
                 makeLearner("classif.cforest"),
-                makeLearner("classif.randomForest"),
-                makeLearner("classif.randomForestSRC"),
-                makeLearner("classif.J48"),
-                makeLearner("classif.rpart"),
-                makeLearner("classif.glmnet"),
-                makeLearner("classif.IBk"),
-                makeLearner("classif.kknn"),
-                makeLearner("classif.JRip"),
-                makeLearner("classif.OneR"),
-                makeLearner("classif.PART"),
-                makeLearner("classif.ksvm"),
-                makeLearner("classif.lssvm"),
-                makeLearner("classif.svm"),
+                #makeLearner("classif.boosting"),
+                makeLearner("classif.gbm"),
                 makeLearner("classif.lda"),
                 makeLearner("classif.mda"),
+                makeLearner("classif.rda"),
                 makeLearner("classif.qda"),
+                makeLearner("classif.ctree"),
                 makeLearner("classif.multinom"),
-                makeLearner("classif.naiveBayes"),
-                makeLearner("classif.nnet"))
+                makeLearner("classif.rpart"),
+                makeLearner("classif.kknn"),
+                makeLearner("classif.nnet"),
+                makeLearner("classif.randomForestSRC"),
+                makeLearner("classif.ksvm"),
+                makeLearner("classif.lssvm"),
+                makeLearner("classif.svm"))
+
+# write in registry
+
+batchmark(reg, learners, tasks,
+          measures = list(mmce, ber, timetrain, timepredict, timeboth),
+          overwrite = TRUE, repls = 1L)
 
 
 
-#resamplings = GetResampleList(tasks)
-#resamplings = list(makeResampleDesc("CV", iters = 10))
-batchmark(reg, learners, tasks, measures = list(mmce, ber, timetrain, timepredict, timeboth), overwrite = TRUE, repls = 1L)
-for (i in 20:30){
-submitJobs(reg, ((i*5)-4):(i*5))
-  }
-submitJobs(reg, 5:39)
-res = reduceResultsExperiments(reg, ids = 6:39,
-                               fun = function(job, res) {
-                                 r1 = as.list(res$resample.res$aggr)
-                                 res$resample.res = NULL
-                                 return(c(r1, res))
-                               })
-res
-
-
-
-# -- New from Bernd
-# Get Aggregated Results
-if (FALSE) {
-  res = reduceResultsExperiments(reg, ids = 1,
-                                 fun = function(job, res) {
-                                   r1 = res$resample.res$aggr
-                                   res$resample.res = NULL
-                                   return(r1)
-                                 })
-  res = reduceResults(reg, ids = getJobIds(reg), init = data.frame(), fun = function(aggr, job, res) {
-    exp.settings = job[c("id", "prob.id", "algo.id", "repl")]
-    exp.settings = as.data.frame(exp.settings)
-    mt = res$resample.res$measures.test
-    a = cbind(exp.settings, mt)
-    aggr = rbind(aggr, a)
-    return(aggr)
-  })
-  res
-}
