@@ -1,5 +1,6 @@
+# define functions needed for batchmark
+
 batchmark = function(reg, learners, oml.task.id, measures = NULL, repls = 1L, save.models = FALSE, overwrite = FALSE, pm.opts = list()) {
-  
   
   
   task.list = lapply(as.list(oml.task.id), getOMLTask)
@@ -91,14 +92,8 @@ getTaskFun = function(oml.task.id) {
 }
 
 
-GetLearnerList = function(learner, tune = FALSE){
-  
+GetLearnerList = function(learner){
   learner.list = lapply(as.list(learner), makeLearner)
-  
-  if(tune == TRUE){
-    learner.list.tuned = lapply(as.list(learner), GettunedLearner)
-    learner.list = c(learner.list, learner.list.tuned)
-  }
   return(learner.list)
 }
 
@@ -112,13 +107,15 @@ GettunedLearner = function(learner){
   return(lrn)
 }
 
+
 library(checkmate)
 library(mlr)
 library(BatchExperiments)
 library(OpenML)
 
-unlink("mlr_benchmark-files", recursive = TRUE)
-reg = makeExperimentRegistry("mlr_benchmark", packages = c("mlr","OpenML","farff","rpart"))
+# Create registry / delete registry
+#unlink("mlr_benchmark-files", recursive = TRUE)
+#reg = makeExperimentRegistry("mlr_benchmark", packages = c("mlr","OpenML","farff","rpart"))
 
 # get the taskids i want to run 
 class.tasks = listOMLTasks(type = 1)
@@ -142,8 +139,7 @@ sel.tasks = sel.tasks[order(sel.tasks$NumberOfFeatures * sel.tasks$NumberOfInsta
 sel.tasks = sel.tasks[-which(sel.tasks$did == 292),]
 tasks = sel.tasks$task_id[1:5]
 
-# create the learner
-
+# create the learner(s)
 learners = list(makeLearner("classif.randomForest"),
                 makeLearner("classif.cforest"))
 
@@ -153,11 +149,37 @@ batchmark(reg, learners, tasks,
           measures = list(mmce, ber, timetrain, timepredict),
           overwrite = TRUE, repls = 1L)
 
+# execute
 submitJobs(reg,1:10)
 
-res = reduceResultsExperiments(reg,
-                               fun = function(job, res) {
-                                 r1 = as.list(res$resample.res$aggr)
-                                 res$resample.res = NULL
-                                 return(c(r1, res))
-                               })
+
+if (FALSE) {
+  
+  # Aggregated performance getter without additional info
+  res = reduceResultsExperiments(reg, ids = 1,
+                                 fun = function(job, res) {
+                                   r1 = res$resample.res$aggr
+                                   res$resample.res = NULL
+                                   return(r1)
+                                 })
+  
+  # Aggregated performance getter with additional info
+  res = reduceResultsExperiments(reg,
+                                 fun = function(job, res) {
+                                   r1 = as.list(res$resample.res$aggr)
+                                   res$resample.res = NULL
+                                   return(c(r1, res))
+                                 })
+  
+  # Unaggregated performance getter
+  res = reduceResults(reg, ids = getJobIds(reg), init = data.frame(), fun = function(aggr, job, res) {
+    exp.settings = job[c("id", "prob.id", "algo.id", "repl")]
+    exp.settings = as.data.frame(exp.settings)
+    mt = res$resample.res$measures.test
+    a = cbind(exp.settings, mt)
+    aggr = rbind(aggr, a)
+    return(aggr)
+  })
+  
+}
+
