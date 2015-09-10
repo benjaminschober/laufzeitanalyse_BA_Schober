@@ -87,7 +87,7 @@ getTaskFun = function(oml.task.id) {
   oml.task = getOMLTask(task.id = oml.task.id)
   z = toMlr(oml.task) # convert oml task to mlr task
   task = z$mlr.task # task
-  task =  removeConstantFeatures(task, perc = 0.01)
+  task$task.desc$id = paste0("t", oml.task.id)
   return(task)
 }
 
@@ -97,16 +97,6 @@ GetLearnerList = function(learner){
   return(learner.list)
 }
 
-GettunedLearner = function(learner){
-  ps = getLearnerParam(learner, 5)
-  ctrl = makeTuneControlGrid()
-  inner = makeResampleDesc("CV", iters = 3L)
-  lrn = makeTuneWrapper(makeLearner(learner),
-                        inner, par.set = ps,
-                        control = ctrl, show.info = FALSE)
-  return(lrn)
-}
-
 
 library(checkmate)
 library(mlr)
@@ -114,11 +104,12 @@ library(BatchExperiments)
 library(OpenML)
 
 # Create registry / delete registry
-#unlink("mlr_benchmark-files", recursive = TRUE)
-#reg = makeExperimentRegistry("mlr_benchmark", packages = c("mlr","OpenML","farff","rpart"))
+# unlink("mlr_benchmark-files", recursive = TRUE)
+reg = makeExperimentRegistry("UseCase_benchmark", packages = c("mlr","OpenML"))
 
 # get the taskids i want to run 
 class.tasks = listOMLTasks(type = 1)
+
 # Subset according to criteria
 sel.tasks = subset(class.tasks,
                    NumberOfInstances >= 200 & NumberOfInstances <= 100000 &
@@ -128,43 +119,60 @@ sel.tasks = subset(class.tasks,
                    estimation_procedure == "10-fold Crossvalidation" &
                    evaluation_measures == "predictive_accuracy"
                    )
+
 # order by size:
-sel.tasks = sel.tasks[order(sel.tasks$NumberOfFeatures * sel.tasks$NumberOfInstances,
+sel.tasks$dims = sel.tasks$NumberOfInstances * sel.tasks$NumberOfFeatures
+sel.tasks = sel.tasks[order(sel.tasks$dims,
                             decreasing = FALSE),]
+
 # remove duplicates:
-# sel.tasks[duplicated(sel.tasks$name),]
-# sel.tasks[sel.tasks$name == "abalone",]
+sel.tasks = sel.tasks[!duplicated(sel.tasks$name),]
 
 #remove error datasets
 sel.tasks = sel.tasks[-which(sel.tasks$did == 292),]
-tasks = sel.tasks$task_id[1:5]
+sel.tasks = sel.tasks[-which(sel.tasks$did == 1004),]
+sel.tasks = sel.tasks[-which(sel.tasks$did == 183),]
+sel.tasks = sel.tasks[-which(sel.tasks$did == 373),]
+# Too many factors:
+# additionally remove: 1047, 825
 
-# create the learner(s)
-learners = list(makeLearner("classif.randomForest"),
-                makeLearner("classif.cforest"))
+#remove duplicate artificial data
+rm = setdiff(grep("fri_c", sel.tasks$name),grep("fri_c[1-9]_1000_", sel.tasks$name))
+rm = c(rm)
+sel.tasks = sel.tasks[-rm,]
 
-# write in registry
+# remove big datasets 
+sel.tasks = sel.tasks[sel.tasks$dims < 10^6,]
 
+# remove datasets with mmce < threshold (0.01?) on classif.randomForest
+
+# finally task ids
+tasks = sel.tasks$task_id[c(1,2)]
+
+# create the learner(s) + file learner.R with all learners
+learners = list(makeBaggingWrapper(makeLearner("classif.rpart"), bw.iters = 500L),
+                makeLearner("classif.randomForest"),
+                makeLearner("classif.rFerns"),
+                makeLearner("classif.cforest"),
+                makeLearner("classif.randomForestSRC")
+)
+
+# write into registry
 batchmark(reg, learners, tasks,
           measures = list(mmce, ber, timetrain, timepredict),
           overwrite = TRUE, repls = 1L)
 
-# execute
-submitJobs(reg,1:10)
+# FIXME: getOMLDataSet is called once per job. Pretty slow sometimes
+#        getData Outside of Map?
 
 
 if (FALSE) {
-  
-  # Aggregated performance getter without additional info
-  res = reduceResultsExperiments(reg, ids = 1,
-                                 fun = function(job, res) {
-                                   r1 = res$resample.res$aggr
-                                   res$resample.res = NULL
-                                   return(r1)
-                                 })
+ 
+  # execute
+  submitJobs(reg,1:10)
   
   # Aggregated performance getter with additional info
-  res = reduceResultsExperiments(reg,
+  res_agg = reduceResultsExperiments(reg,
                                  fun = function(job, res) {
                                    r1 = as.list(res$resample.res$aggr)
                                    res$resample.res = NULL
@@ -172,14 +180,17 @@ if (FALSE) {
                                  })
   
   # Unaggregated performance getter
-  res = reduceResults(reg, ids = getJobIds(reg), init = data.frame(), fun = function(aggr, job, res) {
-    exp.settings = job[c("id", "prob.id", "algo.id", "repl")]
-    exp.settings = as.data.frame(exp.settings)
-    mt = res$resample.res$measures.test
-    a = cbind(exp.settings, mt)
-    aggr = rbind(aggr, a)
-    return(aggr)
-  })
-  
+  # => Das brauche ich!
+    res_all = reduceResults(reg, ids = getJobIds(reg), init = data.frame(), fun = function(aggr, job,         res) {
+      exp.settings = job[c("id", "prob.id", "algo.id", "repl")]
+      exp.settings = as.data.frame(exp.settings)
+      mt = res$resample.res$measures.test
+      a = cbind(exp.settings, mt)
+      aggr = rbind(aggr, a)
+      return(aggr)
+    })
+    
+    result = list(agg = res_agg, all = res_all)
+    save(result, file = "UseCase_Results.RData")
 }
 
