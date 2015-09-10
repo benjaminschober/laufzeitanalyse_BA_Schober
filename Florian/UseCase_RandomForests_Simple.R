@@ -81,22 +81,14 @@ getTaskFun = function(oml.task.id) {
   return(list(task = task, rin = rin))
 }
 
-
 GetLearnerList = function(learner){
   learner.list = lapply(as.list(learner), makeLearner)
   return(learner.list)
 }
 
 
-library(checkmate)
-library(mlr)
-library(BatchExperiments)
+
 library(OpenML)
-
-# Create registry / delete registry
-unlink("mlr_benchmark-files", recursive = TRUE)
-reg = makeExperimentRegistry("UseCase_benchmark", packages = c("mlr","OpenML"))
-
 # get the taskids i want to run 
 class.tasks = listOMLTasks(type = 1)
 
@@ -123,12 +115,14 @@ sel.tasks = sel.tasks[-which(sel.tasks$did == 292),]
 sel.tasks = sel.tasks[-which(sel.tasks$did == 1004),]
 sel.tasks = sel.tasks[-which(sel.tasks$did == 183),]
 sel.tasks = sel.tasks[-which(sel.tasks$did == 373),]
+
 # Too many factors:
 # additionally remove: 1047, 825
+sel.tasks = sel.tasks[-which(sel.tasks$did == 1074),]
+sel.tasks = sel.tasks[-which(sel.tasks$did == 825),]
 
 #remove duplicate artificial data
 rm = setdiff(grep("fri_c", sel.tasks$name),grep("fri_c[1-9]_1000_", sel.tasks$name))
-rm = c(rm)
 sel.tasks = sel.tasks[-rm,]
 
 # remove big datasets 
@@ -137,26 +131,46 @@ sel.tasks = sel.tasks[sel.tasks$dims < 10^6,]
 # remove datasets with mmce < threshold (0.01?) on classif.randomForest
 
 # finally task ids
-tasks = sel.tasks$task_id[c(1,2)]
+tasks = sel.tasks$task_id[c(1:8)]
 
-# create the learner(s) + file learner.R with all learners
-learners = list(makeBaggingWrapper(makeLearner("classif.rpart"), bw.iters = 500L),
-                makeLearner("classif.randomForest"),
-                makeLearner("classif.rFerns"),
-                makeLearner("classif.cforest"),
-                makeLearner("classif.randomForestSRC")
+
+library(checkmate)
+library(mlr)
+library(BatchExperiments)
+library(OpenML)
+
+# source new learners
+source("Florian/Rlearner_classif_ranger.R")
+source("Florian/Rlearner_classif_RRF.R")
+
+
+# Create registry / delete registry
+unlink("mlr_benchmark-files", recursive = TRUE)
+reg = makeExperimentRegistry("UseCase_benchmark", packages = c("mlr","OpenML"))
+
+# define a number of trees for all learners:
+numTrees = 51L
+
+# create the learner(s), measures + file learner.R with all learners
+learners = list(makeBaggingWrapper(makeLearner("classif.rpart"), bw.iters = numTrees, bw.feats = 0.8),
+                makeLearner("classif.randomForest", par.vals =  list(ntree = numTrees)),
+                makeLearner("classif.rFerns", par.vals = list(ferns = numTrees)),
+                makeLearner("classif.cforest", par.vals = list(ntree = numTrees)),
+                makeLearner("classif.randomForestSRC", par.vals = list(ntree = numTrees)),
+                makeLearner("classif.ranger", par.vals = list(num.trees = numTrees)),
+                makeLearner("classif.rrf", par.vals = list(ntree = numTrees))
 )
 
+measures = list(mmce, ber, timetrain, timepredict)
+
 # write into registry
-batchmark(reg, learners, tasks,
-          measures = list(mmce, ber, timetrain, timepredict),
+batchmark(reg, learners, tasks, measures,
           overwrite = TRUE, repls = 1L)
 
 
 if (FALSE) {
- 
   # execute
-  submitJobs(reg,1:5)
+  submitJobs(reg, 37:56)
   
   # Aggregated performance getter with additional info
   res_agg = reduceResultsExperiments(reg,
@@ -179,5 +193,11 @@ if (FALSE) {
     
     result = list(agg = res_agg, all = res_all)
     save(result, file = "UseCase_Results.RData")
+    
+    # alternatively: coerce to BMR
+    source("Florian/BatchmarkToBMR.R")
+    bmr = RegistryToBMR(reg, learners, measures)
+    bmr
 }
+
 

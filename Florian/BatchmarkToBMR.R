@@ -29,7 +29,7 @@ for(i in 1:length(res)){
 }
 
 # Coerce to BMR
-newBMR = list(results = r, measures = meas, learners = lrns)
+newBMR = list(results = r, measures = measures, learners = learners)
 class(newBMR) = "BenchmarkResult"
 
 # Return BMR
