@@ -6,14 +6,16 @@ makeRLearner.classif.rfsrcSyn = function() {
     par.set = makeParamSet(
       makeIntegerLearnerParam(id = "ntree", default = 1000L, lower = 1L),
       makeIntegerLearnerParam(id = "mtry", lower = 1L),
-      makeIntegerLearnerParam(id = "nodesize", lower = 1L, default = 1L),
-      makeIntegerLearnerParam(id = "nsplit", default = 0L),
-      makeDiscreteLearnerParam(id = "na.action", default = "na.impute",
-                               values = c("na.omit", "na.impute"), when = "both"),
-      makeIntegerLearnerParam(id = "nimpute", default = 1L, lower = 1L),
-      makeIntegerLearnerParam(id = "min.node", lower = 1L, default = 3L),
+      makeIntegerVectorLearnerParam(id = "mtrySeq"),
+      makeIntegerLearnerParam(id = "nodesize", default = 5L, lower = 1L),
+      makeIntegerVectorLearnerParam(id = "nodesizeSeq", default = c(1:10, 20, 30, 50, 100)),
+      makeNumericLearnerParam(id = "nsplit", default = 0, lower = 0),
+      makeIntegerLearnerParam(id = "min.node", default = 3L, ),
       makeLogicalLearnerParam(id = "use.org.features", default = TRUE),
-      makeIntegerVectorLearnerParam(id = "mtryseq", lower = 1L, default = c(1:10,20,30,50,100)),
+      makeDiscreteLearnerParam(id = "na.action", default = "na.impute",
+        values = c("na.omit", "na.impute"), when = "both"),
+      makeIntegerLearnerParam(id = "nimpute", default = 1L, lower = 1L),
+      makeNumericVectorLearnerParam(id = "xwar.wt", lower = 0),
       makeLogicalLearnerParam(id = "forest", default = TRUE, tunable = FALSE),
       makeIntegerLearnerParam(id = "seed", tunable = FALSE),
       makeLogicalLearnerParam(id = "do.trace", default = FALSE, tunable = FALSE),
@@ -21,27 +23,29 @@ makeRLearner.classif.rfsrcSyn = function() {
       makeLogicalLearnerParam(id = "statistics", default = FALSE, tunable = FALSE),
       makeLogicalLearnerParam(id = "fast.restore", default = FALSE, tunable = FALSE)
     ),
-    par.vals = list(na.action = "na.impute"),
-    properties = c("missings", "numerics", "factors", "prob", "twoclass", "multiclass"),
-    name = "Random Forest",
+    properties = c("twoclass", "multiclass", "numerics", "factors", "ordered", "prob"),
+    name = "Synthetic Random Forest",
     short.name = "rfsrcSyn",
-    note = "'na.action' has been set to 'na.impute' by default to allow missing data support"
-  )
+    note = "na.action' has been set to 'na.impute' by default to allow missing data support"
+    )
 }
 
 #' @export
-trainLearner.classif.rfsrcSyn = function(.learner, .task, .subset, .weights = NULL,  ...) {
+trainLearner.classif.rfsrcSyn = function(.learner, .task, .subset, .weights = NULL, ...) {
+  df = getTaskData(.task, .subset)
   f = getTaskFormula(.task)
-  randomForestSRC::rfsrcSyn(f, data = getTaskData(.task, .subset, recode.target = "drop.levels"),                             importance = "none", proximity = FALSE, forest = TRUE, ...)
+  c(list(formula = f, data = df), list(...))
 }
 
 #' @export
 predictLearner.classif.rfsrcSyn = function(.learner, .model, .newdata, ...) {
-  p = rfsrcSyn(object = .model$learner.model, newdata = .newdata, ...)
-  if(.learner$predict.type == "prob"){
-    return(p$predicted)  
-  } else {
-    return(factor(colnames(p$predicted)[apply(p$predicted, 1, which.max)]))
+  args = .model$learner.model
+  args$newdata = .newdata
+  args$verbose = FALSE
+  p = do.call(randomForestSRC::rfsrcSyn, args)$predicted
+  if(.learner$predict.type == "response"){
+    max.id = apply(p, MAR = 1, which.max)
+    p = factor(colnames(p)[max.id])
   }
- 
+  return(p)
 }

@@ -4,30 +4,28 @@ makeRLearner.classif.wsrf = function() {
     cl = "classif.wsrf",
     package = "wsrf",
     par.set = makeParamSet(
-      makeIntegerLearnerParam(id = "mtry", lower = 1L),
       makeIntegerLearnerParam(id = "ntrees", default = 500L, lower = 1L),
+      makeIntegerLearnerParam(id = "mtry", lower = 1L),
       makeLogicalLearnerParam(id = "weights", default = TRUE),
-      makeLogicalLearnerParam(id = "parallel", default = FALSE)
+      makeFunctionLearnerParam(id = "na.action", default = na.fail),
+      makeLogicalLearnerParam(id = "parallel", default = TRUE)
     ),
-    par.vals = list(parallel = FALSE),
     properties = c("twoclass", "multiclass", "numerics", "factors", "ordered", "prob"),
-    name = "Weighted Subspace Random Forest",
-    short.name = "wsrf",
-    note = "`parallel` has been set to `FALSE` by default."
-  )
+    name = "Forest of Weighted Subspace Decision Trees",
+    short.name = "wsrf"
+    )
 }
 
 #' @export
 trainLearner.classif.wsrf = function(.learner, .task, .subset, .weights = NULL, ...) {
   f = getTaskFormula(.task)
-  wsrf::wsrf(f, data = getTaskData(.task, .subset), ...)
+  data = getTaskData(.task, .subset)
+  wsrf::wsrf(formula = f, data = data, ...)
+
 }
 
 #' @export
 predictLearner.classif.wsrf = function(.learner, .model, .newdata, ...) {
-  p = wsrf::predict.wsrf(.model$learner.model, .newdata, type = .learner$predict.type)
-  if (.learner$predict.type == "response")
-    return(p)
-  else
-    return(as.matrix(p))
+  type = ifelse(.learner$predict.type == "response", "response", "prob")
+  predict(.model$learner.model, newdata = .newdata, type = type, ...)
 }
