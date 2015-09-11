@@ -1,6 +1,7 @@
-makeRLearner.classif.rrf = function() {
+#' @export
+makeRLearner.classif.RRF = function() {
   makeRLearnerClassif(
-    cl = "classif.rrf",
+    cl = "classif.RRF",
     package = "RRF",
     par.set = makeParamSet(
       makeIntegerLearnerParam(id = "ntree", lower = 1L, default = 500L),
@@ -28,20 +29,20 @@ makeRLearner.classif.rrf = function() {
     ),
     properties = c("twoclass", "multiclass", "prob", "numerics", "factors"),
     name = "Regularized Random Forests",
-    short.name = "rrf",
+    short.name = "RRF",
     note = ""
   )
 }
 
-
-trainLearner.classif.rrf <- function(.learner, .task, .subset, .weights, ...) {
+#' @export
+trainLearner.classif.RRF <- function(.learner, .task, .subset, .weights, ...) {
   args = list(...)
   RRF::RRF(formula = getTaskFormula(.task), data = getTaskData(.task, .subset), 
                  keep.forest= TRUE, ...)
 }
 
-
-predictLearner.classif.rrf <- function(.learner, .model, .newdata, ...) {
+#' @export
+predictLearner.classif.RRF <- function(.learner, .model, .newdata, ...) {
   type = ifelse(.learner$predict.type=="response", "response", "prob")
   p = predict(object = .model$learner.model, newdata = .newdata, type = type, ...)
   return(p)

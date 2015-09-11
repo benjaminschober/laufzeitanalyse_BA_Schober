@@ -118,7 +118,7 @@ sel.tasks = sel.tasks[-which(sel.tasks$did == 373),]
 
 # Too many factors:
 # additionally remove: 1047, 825
-sel.tasks = sel.tasks[-which(sel.tasks$did == 1074),]
+# sel.tasks = sel.tasks[-which(sel.tasks$did == 1074),]
 sel.tasks = sel.tasks[-which(sel.tasks$did == 825),]
 
 #remove duplicate artificial data
@@ -128,10 +128,12 @@ sel.tasks = sel.tasks[-rm,]
 # remove big datasets 
 sel.tasks = sel.tasks[sel.tasks$dims < 10^6,]
 
+sum(sel.tasks$NumberOfClasses <= 2)
+
 # remove datasets with mmce < threshold (0.01?) on classif.randomForest
 
 # finally task ids
-tasks = sel.tasks$task_id[c(1:8)]
+tasks = sel.tasks$task_id[c(1:2)]
 
 
 library(checkmate)
@@ -142,10 +144,15 @@ library(OpenML)
 # source new learners
 source("Florian/Rlearner_classif_ranger.R")
 source("Florian/Rlearner_classif_RRF.R")
+source("Florian/Rlearner_classif_obliqueRF.R")
+source("Florian/RLearner_classif_rotationForest.R")
+source("Florian/Rlearner_classif_randomUniformForest.R")
+source("Florian/Rlearner_classif_wsrf.R")
+
 
 
 # Create registry / delete registry
-unlink("mlr_benchmark-files", recursive = TRUE)
+unlink("UseCase_benchmark-files", recursive = TRUE)
 reg = makeExperimentRegistry("UseCase_benchmark", packages = c("mlr","OpenML"))
 
 # define a number of trees for all learners:
@@ -158,19 +165,22 @@ learners = list(makeBaggingWrapper(makeLearner("classif.rpart"), bw.iters = numT
                 makeLearner("classif.cforest", par.vals = list(ntree = numTrees)),
                 makeLearner("classif.randomForestSRC", par.vals = list(ntree = numTrees)),
                 makeLearner("classif.ranger", par.vals = list(num.trees = numTrees)),
-                makeLearner("classif.rrf", par.vals = list(ntree = numTrees))
+                makeLearner("classif.RRF", par.vals = list(ntree = numTrees)),
+                makeLearner("classif.obliqueRF", par.vals = list(ntree = numTrees)),
+                makeLearner("classif.rotationForest", par.vals = list(L = numTrees)),
+                makeLearner("classif.randomUniformForest", par.vals = list(ntree = numTrees)),
+                makeLearner("classif.wsrf", par.vals = list(ntrees = numTrees))
 )
 
 measures = list(mmce, ber, timetrain, timepredict)
 
 # write into registry
-batchmark(reg, learners, tasks, measures,
-          overwrite = TRUE, repls = 1L)
+batchmark(reg, learners, tasks, measures, overwrite = TRUE, repls = 1L)
 
 
 if (FALSE) {
   # execute
-  submitJobs(reg, 37:56)
+  submitJobs(reg, 1:22)
   
   # Aggregated performance getter with additional info
   res_agg = reduceResultsExperiments(reg,
