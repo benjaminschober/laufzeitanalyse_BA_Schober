@@ -1,7 +1,7 @@
 #' @export
-makeRLearner.classif.rfsrcSyn = function() {
+makeRLearner.classif.randomForestSRCSyn = function() {
   makeRLearnerClassif(
-    cl = "classif.rfsrcSyn",
+    cl = "classif.randomForestSRCSyn",
     package = "randomForestSRC",
     par.set = makeParamSet(
       makeIntegerLearnerParam(id = "ntree", default = 1000L, lower = 1L),
@@ -31,17 +31,17 @@ makeRLearner.classif.rfsrcSyn = function() {
 }
 
 #' @export
-trainLearner.classif.rfsrcSyn = function(.learner, .task, .subset, .weights = NULL, ...) {
+trainLearner.classif.randomForestSRCSyn = function(.learner, .task, .subset, .weights = NULL, ...) {
+  ##using parameters object and newdata throws an error, so we need to train like this
   df = getTaskData(.task, .subset)
   f = getTaskFormula(.task)
-  c(list(formula = f, data = df), list(...))
+  c(list(formula = f, data = df), list(proximity = FALSE, forest = TRUE, verbose = FALSE, ...))
 }
 
 #' @export
-predictLearner.classif.rfsrcSyn = function(.learner, .model, .newdata, ...) {
+predictLearner.classif.randomForestSRCSyn = function(.learner, .model, .newdata, ...) {
   args = .model$learner.model
   args$newdata = .newdata
-  args$verbose = FALSE
   p = do.call(randomForestSRC::rfsrcSyn, args)$predicted
   if(.learner$predict.type == "response"){
     max.id = apply(p, MAR = 1, which.max)

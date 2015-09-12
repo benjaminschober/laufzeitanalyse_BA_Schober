@@ -110,9 +110,11 @@ sel.tasks = sel.tasks[order(sel.tasks$dims,
 # remove duplicates:
 sel.tasks = sel.tasks[!duplicated(sel.tasks$name),]
 
+tasks = sample(tasks, 2)
+
 #remove error datasets
 sel.tasks = sel.tasks[-which(sel.tasks$did == 292),]
-sel.tasks = sel.tasks[-which(sel.tasks$did == 1004),]
+sel.tasks = sel.tasks[-which(sel.tasksid == 1004),]
 sel.tasks = sel.tasks[-which(sel.tasks$did == 183),]
 sel.tasks = sel.tasks[-which(sel.tasks$did == 373),]
 
@@ -133,8 +135,8 @@ sel.tasks = sel.tasks[sel.tasks$NumberOfClasses <= 2,]
 # remove datasets with mmce < threshold (0.01?) on classif.randomForest
 
 # finally task ids
-tasks = sel.tasks$task_id[1:50]
-tasks = sample(tasks, 2)
+tasks = sel.tasks$task_id[1]
+
 
 
 library(checkmate)
@@ -144,19 +146,13 @@ library(OpenML)
 library(obliqueRF)
 
 # source new learners
-source("Florian/Rlearner_classif_ranger.R")
-source("Florian/Rlearner_classif_RRF.R")
-source("Florian/Rlearner_classif_obliqueRF.R")
-source("Florian/RLearner_classif_rotationForest.R")
-source("Florian/Rlearner_classif_randomUniformForest.R")
-source("Florian/Rlearner_classif_rfsrcSyn.R")
+source("Florian/learner/Rlearner_classif_ranger.R")
+source("Florian/learner/Rlearner_classif_RRF.R")
+source("Florian/learner/Rlearner_classif_obliqueRF.R")
+source("Florian/learner/RLearner_classif_rotationForest.R")
+# source("Florian/learner/Rlearner_classif_randomUniformForest.R")
+source("Florian/learner/Rlearner_classif_rfsrcSyn.R")
 # crashes: source("Florian/Rlearner_classif_wsrf.R")
-
-
-
-# Create registry / delete registry
-# unlink("UseCase_benchmark-files", recursive = TRUE)
-reg = makeExperimentRegistry("UseCase_benchmark", packages = c("mlr","OpenML"))
 
 # define a number of trees for all learners:
 numTrees = 51L
@@ -171,21 +167,29 @@ learners = list(makeBaggingWrapper(makeLearner("classif.rpart"), bw.iters = numT
                 makeLearner("classif.RRF", par.vals = list(ntree = numTrees)),
                 makeLearner("classif.obliqueRF", par.vals = list(ntree = numTrees)),
                 makeLearner("classif.rotationForest", par.vals = list(L = numTrees)),
-                makeLearner("classif.randomUniformForest", par.vals = list(ntree = numTrees)),
-                makeLearner("classif.rfsrcSyn", par.vals = list(ntree = numTrees))
+               # makeLearner("classif.randomUniformForest", par.vals = list(ntree = numTrees)),
+                makeLearner("classif.randomForestSRCSyn", par.vals = list(ntree = numTrees))
                 # crashes: ,makeLearner("classif.wsrf", par.vals = list(ntrees = numTrees)) 
 )
 
 measures = list(mmce, ber, timetrain, timepredict)
 
+
+
+# Create registry / delete registry
+unlink("UseCase_benchmark-files", recursive = TRUE)
+reg = makeExperimentRegistry("UseCase_benchmark", packages = c("mlr","OpenML"),
+                             src.dirs = "Florian/learner/")
+
 # write into registry
 batchmark(reg, learners, tasks, measures, overwrite = TRUE, repls = 1L)
 
+testJob(reg, 4, external = TRUE)
 
 if (FALSE) {
   # execute
   showStatus(reg)
-  submitJobs(reg, 1:22)
+  submitJobs(reg, 9)
   
   # Aggregated performance getter with additional info
   res_agg = reduceResultsExperiments(reg,

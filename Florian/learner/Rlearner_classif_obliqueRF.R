@@ -1,3 +1,5 @@
+library(obliqueRF)
+
 #' @export
 makeRLearner.classif.obliqueRF = function() {
   makeRLearnerClassif(

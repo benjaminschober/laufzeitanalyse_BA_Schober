@@ -41,7 +41,10 @@ return(newBMR)
 
 
 
+#  Fehler sammeln!
+
 ## Old Stuff for debugging.
+
 if(FALSE){
   # Create BMR to see Structure
   tsk = list(iris.task, sonar.task)
