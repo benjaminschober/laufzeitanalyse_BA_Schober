@@ -183,7 +183,7 @@ batchmark(reg, learners, tasks, measures, overwrite = TRUE, repls = 1L)
 
 if (FALSE) {
   # execute
-  testJob(reg, 4, external = TRUE)
+  testJob(reg, 7, external = FALSE)
   showStatus(reg)
   submitJobs(reg, 1:30)
   
@@ -210,7 +210,7 @@ if (FALSE) {
     save(result, file = "UseCase_Results.RData")
     
     # alternatively: coerce to BMR
-    source("Florian/BatchmarkToBMR.R")
+    source("Florian/learner/BatchmarkToBMR.R")
     bmr = RegistryToBMR(reg, learners, measures)
     bmr
 }

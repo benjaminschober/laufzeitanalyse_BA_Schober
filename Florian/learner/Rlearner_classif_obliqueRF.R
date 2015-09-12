@@ -31,7 +31,7 @@ trainLearner.classif.obliqueRF = function(.learner, .task, .subset, .weights = N
 predictLearner.classif.obliqueRF = function(.learner, .model, .newdata, ...) {
   features = .newdata[, .model$features]
   features = data.frame(features)
-  p = predict(.model$learner.model, newdata = features, type = .learner$predict.type, proximity = FALSE, ...)
+  p = obliqueRF:::predict.obliqueRF(.model$learner.model, newdata = features, type = .learner$predict.type, proximity = FALSE, ...)
   if(.learner$predict.type == "prob"){
     colnames(p) = c(.model$task.desc$negative, .model$task.desc$positive)
   }else{
