@@ -1,6 +1,5 @@
 # define functions needed for batchmark
 
-
 batchmark = function(reg, learners, oml.task.id, measures = NULL, repls = 1L, save.models = FALSE, overwrite = FALSE, pm.opts = list()) {
   
   
@@ -107,9 +106,12 @@ sel.tasks$dims = sel.tasks$NumberOfInstances * sel.tasks$NumberOfFeatures
 sel.tasks = sel.tasks[order(sel.tasks$dims,
                             decreasing = FALSE),]
 
+# remove duplicates:
+sel.tasks = sel.tasks[!duplicated(sel.tasks$name),]
+
 #remove error datasets
 sel.tasks = sel.tasks[-which(sel.tasks$did == 292),]
-sel.tasks = sel.tasks[-which(sel.tasksid == 1004),]
+sel.tasks = sel.tasks[-which(sel.tasks$did == 1004),]
 sel.tasks = sel.tasks[-which(sel.tasks$did == 183),]
 sel.tasks = sel.tasks[-which(sel.tasks$did == 373),]
 
@@ -119,7 +121,7 @@ sel.tasks = sel.tasks[-which(sel.tasks$did == 373),]
 sel.tasks = sel.tasks[-which(sel.tasks$did == 825),]
 
 #remove duplicate artificial data
-rm = setdiff(grep("fri_c", sel.tasks$name),grep("fri_c[1-9]_1000_", sel.tasks$name))
+rm = setdiff(grep("fri_c", sel.tasks$name), grep("fri_c[1-9]_1000_", sel.tasks$name))
 sel.tasks = sel.tasks[-rm,]
 
 # remove big datasets 
@@ -127,11 +129,8 @@ sel.tasks = sel.tasks[sel.tasks$dims < 10^6,]
 
 sel.tasks = sel.tasks[sel.tasks$NumberOfClasses <= 2,]
 
-# remove duplicates:
-sel.tasks = sel.tasks[!duplicated(sel.tasks$name),]
-
 # finally task ids
-tasks = sel.tasks$task_id
+tasks = sel.tasks$task_id[1:3]
 
 
 
@@ -139,7 +138,6 @@ library(checkmate)
 library(mlr)
 library(BatchExperiments)
 library(OpenML)
-library(obliqueRF)
 
 # source new learners
 source("Florian/learner/Rlearner_classif_ranger.R")
@@ -183,7 +181,7 @@ batchmark(reg, learners, tasks, measures, overwrite = TRUE, repls = 1L)
 
 if (FALSE) {
   # execute
-  testJob(reg, 7, external = FALSE)
+  testJob(reg, 8, external = FALSE)
   showStatus(reg)
   submitJobs(reg, 1:30)
   

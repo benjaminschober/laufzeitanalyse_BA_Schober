@@ -1,10 +1,8 @@
-library(obliqueRF)
-
 #' @export
 makeRLearner.classif.obliqueRF = function() {
   makeRLearnerClassif(
     cl = "classif.obliqueRF",
-    package = "obliqueRF",
+    package = "!obliqueRF",
     par.set = makeParamSet(
       makeIntegerLearnerParam(id = "ntree", default = 100L, lower = 1L),
       makeIntegerLearnerParam(id = "mtry", lower = 1L),
@@ -38,5 +36,6 @@ predictLearner.classif.obliqueRF = function(.learner, .model, .newdata, ...) {
     p = as.factor(p)
     p = as.factor(ifelse(p == 1L, .model$task.desc$positive, .model$task.desc$negative))
   }
+  class(p) = c(class(p), "Prediction")
   return(p)
 }
