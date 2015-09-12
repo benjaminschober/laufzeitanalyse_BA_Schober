@@ -107,11 +107,6 @@ sel.tasks$dims = sel.tasks$NumberOfInstances * sel.tasks$NumberOfFeatures
 sel.tasks = sel.tasks[order(sel.tasks$dims,
                             decreasing = FALSE),]
 
-# remove duplicates:
-sel.tasks = sel.tasks[!duplicated(sel.tasks$name),]
-
-tasks = sample(tasks, 2)
-
 #remove error datasets
 sel.tasks = sel.tasks[-which(sel.tasks$did == 292),]
 sel.tasks = sel.tasks[-which(sel.tasksid == 1004),]
@@ -132,10 +127,11 @@ sel.tasks = sel.tasks[sel.tasks$dims < 10^6,]
 
 sel.tasks = sel.tasks[sel.tasks$NumberOfClasses <= 2,]
 
-# remove datasets with mmce < threshold (0.01?) on classif.randomForest
+# remove duplicates:
+sel.tasks = sel.tasks[!duplicated(sel.tasks$name),]
 
 # finally task ids
-tasks = sel.tasks$task_id[1]
+tasks = sel.tasks$task_id[1:3]
 
 
 
@@ -189,7 +185,7 @@ testJob(reg, 4, external = TRUE)
 if (FALSE) {
   # execute
   showStatus(reg)
-  submitJobs(reg, 9)
+  submitJobs(reg, 1:30)
   
   # Aggregated performance getter with additional info
   res_agg = reduceResultsExperiments(reg,
