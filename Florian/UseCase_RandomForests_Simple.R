@@ -131,7 +131,7 @@ sel.tasks = sel.tasks[sel.tasks$NumberOfClasses <= 2,]
 sel.tasks = sel.tasks[!duplicated(sel.tasks$name),]
 
 # finally task ids
-tasks = sel.tasks$task_id[1:3]
+tasks = sel.tasks$task_id
 
 
 
@@ -151,7 +151,7 @@ source("Florian/learner/Rlearner_classif_rfsrcSyn.R")
 # crashes: source("Florian/Rlearner_classif_wsrf.R")
 
 # define a number of trees for all learners:
-numTrees = 51L
+numTrees = 500L
 
 # create the learner(s), measures + file learner.R with all learners
 learners = list(makeBaggingWrapper(makeLearner("classif.rpart"), bw.iters = numTrees, bw.feats = 0.8),
@@ -180,10 +180,10 @@ reg = makeExperimentRegistry("UseCase_benchmark", packages = c("mlr","OpenML"),
 # write into registry
 batchmark(reg, learners, tasks, measures, overwrite = TRUE, repls = 1L)
 
-testJob(reg, 4, external = TRUE)
 
 if (FALSE) {
   # execute
+  testJob(reg, 4, external = TRUE)
   showStatus(reg)
   submitJobs(reg, 1:30)
   
